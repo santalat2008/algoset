@@ -1,0 +1,154 @@
+# ==============================================================================
+# AlgoSet - Root .gitignore
+# Covers Django backend, Next.js frontend, Python, Node, databases, and IDEs
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Environment Variables & Secrets
+# ------------------------------------------------------------------------------
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Preserve example config
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# ------------------------------------------------------------------------------
+# Python & Bytecode
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ------------------------------------------------------------------------------
+# Virtual Environments
+# ------------------------------------------------------------------------------
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# ------------------------------------------------------------------------------
+# Django Artifacts & Databases
+# ------------------------------------------------------------------------------
+*.sqlite3
+db.sqlite3
+*.db
+*.sql
+*.dump
+local_settings.py
+
+# Collected Static & Uploaded Media
+staticfiles/
+static_root/
+media/
+media_root/
+
+# ------------------------------------------------------------------------------
+# Node.js & Frontend (Next.js)
+# ------------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+.turbo/
+dist/
+
+# NPM / Yarn / PNPM debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# ------------------------------------------------------------------------------
+# Testing, Coverage & Linters
+# ------------------------------------------------------------------------------
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+coverage/
+.nyc_output/
+*.lcov
+.eslintcache
+.stylelintcache
+
+# ------------------------------------------------------------------------------
+# IDEs, Code Editors & OS Files
+# ------------------------------------------------------------------------------
+# JetBrains (PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ------------------------------------------------------------------------------
+# Logs & Temporary Files
+# ------------------------------------------------------------------------------
+*.log
+logs/
+tmp/
+temp/
+
