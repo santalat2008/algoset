@@ -1,5 +1,6 @@
 import ast
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -86,8 +87,11 @@ def validate_code_safety(code: str) -> tuple[bool, str]:
     return True, ""
 
 
+logger = logging.getLogger(__name__)
+
+
 def send_verification_email(user: User) -> bool:
-    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+    frontend_url = getattr(settings, "FRONTEND_URL", "https://algoset.study")
     verify_url = f"{frontend_url}/verify-email?token={user.verification_token}"
     subject = "Verify your AlgoSet account"
     message = (
@@ -95,8 +99,12 @@ def send_verification_email(user: User) -> bool:
         f"Welcome to AlgoSet. Please verify your email using this token: {user.verification_token}\n"
         f"Or click: {verify_url}"
     )
-    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-    return True
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send verification email to {user.email}: {e}")
+        return False
 
 
 def record_user_activity(user: User, is_accepted: bool = False):
