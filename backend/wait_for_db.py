@@ -18,3 +18,4 @@ for attempt in range(1, 61):
 if not connected:
     sys.stderr.write(f"Ma'lumotlar bazasiga ({host}:{port}) ulanib bo'lmadi (Timeout 60s).\n")
     sys.exit(1)
+

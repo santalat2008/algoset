@@ -689,6 +689,12 @@ class ProblemVersionSerializer(serializers.ModelSerializer):
             return ValidationRunSerializer(latest).data
         return None
 
+    def validate(self, attrs):
+        for field in ["statement_uz", "statement_en", "input_description_uz", "output_description_uz", "constraints"]:
+            if field in attrs and attrs[field]:
+                attrs[field] = sanitize_html(attrs[field])
+        return attrs
+
 
 class ProblemAuthoringDetailSerializer(serializers.ModelSerializer):
     tags = TagListField(required=False)
@@ -919,6 +925,15 @@ class ContestSerializer(serializers.ModelSerializer):
         if not ann_en:
             attrs["announcement_en"] = attrs["announcement_uz"]
 
+        if attrs.get("announcement_uz"):
+            attrs["announcement_uz"] = sanitize_html(attrs["announcement_uz"])
+        if attrs.get("announcement_en"):
+            attrs["announcement_en"] = sanitize_html(attrs["announcement_en"])
+        if attrs.get("rules_uz"):
+            attrs["rules_uz"] = sanitize_html(attrs["rules_uz"])
+        if attrs.get("rules_en"):
+            attrs["rules_en"] = sanitize_html(attrs["rules_en"])
+
         duration = attrs.get("duration_minutes")
         if duration is not None:
             if duration < 10 or duration > 10080:
@@ -1080,6 +1095,9 @@ class DiscussionCommentSerializer(serializers.ModelSerializer):
         fields = ["id", "discussion", "user", "username", "content", "created_at"]
         read_only_fields = ["discussion", "user", "created_at"]
 
+    def validate_content(self, value):
+        return sanitize_html(value) if value else value
+
 
 class DiscussionSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
@@ -1100,6 +1118,13 @@ class DiscussionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["problem", "user", "created_at"]
+
+    def validate_title(self, value):
+        from html import escape
+        return escape(value.strip()) if value else value
+
+    def validate_content(self, value):
+        return sanitize_html(value) if value else value
 
 
 class PublicationRequestSerializer(serializers.ModelSerializer):

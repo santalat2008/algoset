@@ -24,10 +24,12 @@ import {
   Check
 } from "lucide-react";
 import { api } from "@/lib/api";
+import AuthModal from "@/components/AuthModal";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -112,14 +114,10 @@ export default function ProfilePage() {
         </p>
         <div className="mt-6 flex flex-col gap-3">
           <button
-            onClick={async () => {
-              await api.login("student", "algoset123");
-              const me = await api.getMe();
-              setUser(me);
-            }}
+            onClick={() => setIsAuthModalOpen(true)}
             className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-lg shadow-blue-500/25 transition-all"
           >
-            Talaba (student) hisobi bilan kirish
+            Tizimga kirish
           </button>
           <Link
             href="/"
@@ -128,6 +126,11 @@ export default function ProfilePage() {
             Bosh sahifaga qaytish
           </Link>
         </div>
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={(me) => setUser(me)}
+        />
       </div>
     );
   }

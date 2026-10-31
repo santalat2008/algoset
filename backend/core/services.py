@@ -80,6 +80,9 @@ def validate_code_safety(code: str) -> tuple[bool, str]:
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in BLOCKED_CALLS:
                 return False, f"Call to '{node.func.id}' is restricted."
+        elif isinstance(node, ast.Attribute):
+            if node.attr in {"__subclasses__", "__bases__", "__globals__", "__code__", "__builtins__", "__import__"}:
+                return False, f"Access to dangerous attribute '{node.attr}' is restricted."
     return True, ""
 
 
@@ -1005,7 +1008,14 @@ def import_testcases_from_zip(
 
     with zipfile.ZipFile(zip_file, "r") as zf:
         file_list = zf.namelist()
+        if len(file_list) > 500:
+            raise ValueError("Xavfsizlik cheklovi: ZIP ichida juda ko'p fayllar mavjud (maksimal 500 ta).")
+        total_size = sum(zf.getinfo(name).file_size for name in file_list)
+        if total_size > 25 * 1024 * 1024:
+            raise ValueError("Xavfsizlik cheklovi: ZIP faylning umumiy hajmi 25 MB dan oshmasligi kerak.")
         for name in file_list:
+            if zf.getinfo(name).file_size > 5 * 1024 * 1024:
+                raise ValueError(f"Xavfsizlik cheklovi: '{name}' fayli hajmi 5 MB dan oshmasligi kerak.")
             if ".." in name or name.startswith("/") or name.startswith("\\"):
                 raise ValueError(f"Xavfsizlik cheklovi: ZIP ichida xavfli fayl yo'li aniqlandi ('{name}').")
 

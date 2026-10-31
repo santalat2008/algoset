@@ -94,17 +94,6 @@ export default function ProgressPage() {
               <LogIn className="w-4 h-4" />
               Tizimga kirish / Ro'yxatdan o'tish
             </button>
-            <button
-              onClick={async () => {
-                await api.login("student", "algoset123");
-                const me = await api.getMe();
-                setUserData(me);
-                setIsAuthenticated(true);
-              }}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all text-center"
-            >
-              Talaba hisobi bilan tezkor sinash
-            </button>
           </div>
         </div>
 

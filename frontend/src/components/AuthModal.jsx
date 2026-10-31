@@ -43,23 +43,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     }
   }
 
-  function handleQuickLogin(user, pass) {
-    setUsername(user);
-    setPassword(pass);
-    setLoading(true);
-    setError("");
-    api.login(user, pass)
-      .then(async () => {
-        const me = await api.getMe().catch(() => ({ username: user, email: "" }));
-        onSuccess(me);
-        onClose();
-      })
-      .catch((err) => {
-        setError(err.message || "Kirishda xatolik yuz berdi.");
-      })
-      .finally(() => setLoading(false));
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -196,30 +179,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
               )}
             </button>
           </form>
-
-          {isLogin && (
-            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-              <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2.5 text-center">
-                Tezkor sinov hisoblari
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("student", "algoset123")}
-                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 text-xs font-semibold border border-transparent hover:border-blue-200 transition-all"
-                >
-                  Talaba (student)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("admin", "algoset123")}
-                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 text-xs font-semibold border border-transparent hover:border-blue-200 transition-all"
-                >
-                  Administrator
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

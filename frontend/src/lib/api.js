@@ -244,9 +244,10 @@ export const api = {
     });
   },
 
-  async resendVerification() {
+  async resendVerification(email) {
     return await request("/auth/resend-verification/", {
       method: "POST",
+      body: JSON.stringify(email ? { email } : {}),
     });
   },
 

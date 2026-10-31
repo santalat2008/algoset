@@ -105,6 +105,7 @@ class AlgoSetLoginView(TokenObtainPairView):
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def _verify(self, request):
         token = request.data.get("token") or request.query_params.get("token")
@@ -177,7 +178,28 @@ class MeView(APIView):
             user.is_email_verified = False
             send_verification_email(user)
         if "password" in data and data["password"]:
-            user.set_password(data["password"])
+            current_password = data.get("current_password")
+            if not current_password or not user.check_password(current_password):
+                return Response(
+                    {"detail": "Joriy parol kiritilmadi yoki noto'g'ri."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            new_password = str(data["password"])
+            if len(new_password) < 8:
+                return Response(
+                    {"detail": "Yangi parol kamida 8 ta belgidan iborat bo'lishi kerak."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                validate_password(new_password, user)
+            except DjangoValidationError as ve:
+                return Response(
+                    {"detail": ve.messages[0] if ve.messages else "Parol xavfsizlik talablariga javob bermaydi."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.set_password(new_password)
         user.save()
         return self.get(request)
 
@@ -195,16 +217,24 @@ class PlatformStatsView(APIView):
 
 
 class ResendVerificationView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
-        user = request.user
-        send_verification_email(user)
+        email = (request.data.get("email") or "").strip().lower()
+        if not email and request.user.is_authenticated:
+            email = request.user.email
+        if not email:
+            return Response(
+                {"detail": "Email manzili kiritilishi shart."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = User.objects.filter(email__iexact=email).first()
+        if user and not user.is_email_verified:
+            send_verification_email(user)
         return Response({
-            "detail": "Verification email sent.",
-            "token": str(user.verification_token),
-            "is_email_verified": user.is_email_verified,
+            "detail": "Agar ushbu email manzili ro'yxatdan o'tgan bo'lsa, tasdiqlash xabari yuborildi.",
+            "is_email_verified": False,
         })
 
 
@@ -425,12 +455,12 @@ class TopicViewSet(viewsets.ModelViewSet):
         if cat_slug:
             qs = qs.filter(category__slug=cat_slug)
         if not user.is_authenticated or user.role == User.Role.STUDENT:
-            return qs.all()
+            return qs.filter(visibility=VisibilityStatus.PUBLIC)
         if is_admin_or_above(user):
             return qs.all()
         if user.role == User.Role.AUTHOR:
             return qs.filter(Q(visibility=VisibilityStatus.PUBLIC) | Q(created_by=user))
-        return qs.all()
+        return qs.filter(visibility=VisibilityStatus.PUBLIC)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

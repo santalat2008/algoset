@@ -1445,6 +1445,230 @@ def check(inp, exp, act):
             pass
 
 
+class AlgoSetProductionSecurityHardeningTests(APITestCase):
+    def setUp(self):
+        self.superadmin = User.objects.create_user(
+            username="sa_sec",
+            email="sa_sec@algoset.uz",
+            password="Password123!",
+            role=User.Role.SUPERADMIN,
+        )
+        self.admin = User.objects.create_user(
+            username="adm_sec",
+            email="adm_sec@algoset.uz",
+            password="Password123!",
+            role=User.Role.ADMIN,
+        )
+        self.author1 = User.objects.create_user(
+            username="auth1_sec",
+            email="auth1_sec@algoset.uz",
+            password="Password123!",
+            role=User.Role.AUTHOR,
+        )
+        self.author2 = User.objects.create_user(
+            username="auth2_sec",
+            email="auth2_sec@algoset.uz",
+            password="Password123!",
+            role=User.Role.AUTHOR,
+        )
+        self.student = User.objects.create_user(
+            username="stu_sec",
+            email="stu_sec@algoset.uz",
+            password="Password123!",
+            role=User.Role.STUDENT,
+        )
+        self.category = TopicCategory.objects.create(
+            slug="sec-cat",
+            icon="shield",
+            group="Security",
+            title_uz="Xavfsizlik",
+            title_en="Security",
+        )
+
+    def test_unauthenticated_and_student_cannot_view_private_topic(self):
+        Topic.objects.create(
+            category=self.category,
+            slug="private-topic-sec",
+            title_uz="Maxfiy",
+            title_en="Private",
+            visibility=VisibilityStatus.PRIVATE,
+            created_by=self.author1,
+        )
+        Topic.objects.create(
+            category=self.category,
+            slug="public-topic-sec",
+            title_uz="Ommaviy",
+            title_en="Public",
+            visibility=VisibilityStatus.PUBLIC,
+            created_by=self.author1,
+        )
+
+        # Unauthenticated
+        res_anon = self.client.get("/api/topics/")
+        self.assertEqual(res_anon.status_code, status.HTTP_200_OK)
+        slugs_anon = [t["slug"] for t in res_anon.data]
+        self.assertIn("public-topic-sec", slugs_anon)
+        self.assertNotIn("private-topic-sec", slugs_anon)
+
+        # Student
+        self.client.force_authenticate(user=self.student)
+        res_stu = self.client.get("/api/topics/")
+        slugs_stu = [t["slug"] for t in res_stu.data]
+        self.assertIn("public-topic-sec", slugs_stu)
+        self.assertNotIn("private-topic-sec", slugs_stu)
+
+        # Author 1 (owner)
+        self.client.force_authenticate(user=self.author1)
+        res_auth1 = self.client.get("/api/topics/")
+        slugs_auth1 = [t["slug"] for t in res_auth1.data]
+        self.assertIn("public-topic-sec", slugs_auth1)
+        self.assertIn("private-topic-sec", slugs_auth1)
+
+        # Author 2 (different author)
+        self.client.force_authenticate(user=self.author2)
+        res_auth2 = self.client.get("/api/topics/")
+        slugs_auth2 = [t["slug"] for t in res_auth2.data]
+        self.assertIn("public-topic-sec", slugs_auth2)
+        self.assertNotIn("private-topic-sec", slugs_auth2)
+
+    def test_resend_verification_does_not_leak_token_and_works_unauthenticated(self):
+        User.objects.create_user(
+            username="unv_sec",
+            email="unv_sec@algoset.uz",
+            password="Password123!",
+            is_email_verified=False,
+        )
+
+        res = self.client.post("/api/auth/resend-verification/", {"email": "unv_sec@algoset.uz"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertNotIn("token", res.data)
+        self.assertIn("detail", res.data)
+
+    def test_unauthorized_users_cannot_publish_or_modify_other_author_problem(self):
+        prob = Problem.objects.create(
+            slug="author-sec-prob",
+            title_uz="ASP",
+            title_en="ASP",
+            author=self.author1,
+            visibility=VisibilityStatus.PRIVATE,
+        )
+        ProblemVersion.objects.create(
+            problem=prob,
+            version_number=1,
+            reference_solution="def solve(): pass",
+        )
+
+        # 1. Student attempting to publish -> 403
+        self.client.force_authenticate(user=self.student)
+        res_stu = self.client.post("/api/problems/author-sec-prob/versions/1/publish/")
+        self.assertEqual(res_stu.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 2. Author 2 (different author) attempting to publish Author 1's problem -> 403
+        self.client.force_authenticate(user=self.author2)
+        res_auth2 = self.client.post("/api/problems/author-sec-prob/versions/1/publish/")
+        self.assertEqual(res_auth2.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 3. Anonymous user -> 401
+        self.client.logout()
+        res_anon = self.client.post("/api/problems/author-sec-prob/versions/1/publish/")
+        self.assertEqual(res_anon.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # 4. Author 1 without validation run -> 400
+        self.client.force_authenticate(user=self.author1)
+        res_unval = self.client.post("/api/problems/author-sec-prob/versions/1/publish/")
+        self.assertEqual(res_unval.status_code, status.HTTP_400_BAD_REQUEST)
+        prob.refresh_from_db()
+        self.assertEqual(prob.visibility, VisibilityStatus.PRIVATE)
+
+    def test_password_change_requires_current_password_and_validation(self):
+        self.client.force_authenticate(user=self.student)
+
+        # 1. Missing current_password
+        res1 = self.client.patch("/api/auth/me/", {"password": "NewPassword123!"})
+        self.assertEqual(res1.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 2. Wrong current_password
+        res2 = self.client.patch("/api/auth/me/", {
+            "password": "NewPassword123!",
+            "current_password": "WrongPassword!",
+        })
+        self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 3. Too short password
+        res3 = self.client.patch("/api/auth/me/", {
+            "password": "short",
+            "current_password": "Password123!",
+        })
+        self.assertEqual(res3.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 4. Valid password update
+        res4 = self.client.patch("/api/auth/me/", {
+            "password": "NewSecurePassword999!",
+            "current_password": "Password123!",
+        })
+        self.assertEqual(res4.status_code, status.HTTP_200_OK)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password("NewSecurePassword999!"))
+
+    def test_xss_sanitization_in_discussions(self):
+        self.client.force_authenticate(user=self.student)
+        prob = Problem.objects.create(
+            slug="disc-sec-prob",
+            title_uz="DSP",
+            title_en="DSP",
+            author=self.author1,
+            visibility=VisibilityStatus.PUBLIC,
+        )
+
+        res = self.client.post("/api/problems/disc-sec-prob/discussions/", {
+            "title": "Title <script>alert(1)</script>",
+            "content": "<p>Content</p><script>alert('xss')</script><iframe src='javascript:void(0)'></iframe>",
+        })
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn("<script>", res.data["title"])
+        self.assertNotIn("<script>", res.data["content"])
+        self.assertNotIn("<iframe>", res.data["content"])
+
+        disc_id = res.data["id"]
+        res_comment = self.client.post(f"/api/problems/disc-sec-prob/discussions/{disc_id}/comments/", {
+            "content": "<img src=x onerror=alert(1)><b>comment</b>",
+        })
+        self.assertEqual(res_comment.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn("onerror", res_comment.data["content"])
+
+    def test_python_sandbox_blocks_dunder_attributes(self):
+        is_safe, err = validate_code_safety("().__class__.__base__.__subclasses__()")
+        self.assertFalse(is_safe)
+        self.assertIn("dangerous attribute", err)
+
+        is_safe2, err2 = validate_code_safety("def f(): return f.__globals__")
+        self.assertFalse(is_safe2)
+        self.assertIn("dangerous attribute", err2)
+
+    def test_zip_import_safety_validation(self):
+        import io
+        import zipfile
+        from .services import import_testcases_from_zip
+
+        prob = Problem.objects.create(
+            slug="zip-sec-prob",
+            title_uz="ZP",
+            title_en="ZP",
+            author=self.author1,
+        )
+        v = ProblemVersion.objects.create(problem=prob, version_number=1)
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("../evil_path.in", "123")
+        buf.seek(0)
+
+        with self.assertRaises(ValueError) as ctx:
+            import_testcases_from_zip(v, buf)
+        self.assertIn("xavfli fayl yo'li", str(ctx.exception))
+
+
+
 
 
 
