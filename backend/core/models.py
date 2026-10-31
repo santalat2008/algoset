@@ -101,6 +101,8 @@ class Topic(models.Model):
         User, on_delete=models.SET_NULL, null=True, related_name="topics_created"
     )
     order = models.PositiveIntegerField(default=0)
+    source_url = models.URLField(max_length=500, blank=True, default="")
+    is_imported = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -145,6 +147,10 @@ class Lesson(models.Model):
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="lessons_created"
     )
     related_problems = models.ManyToManyField("Problem", related_name="lessons", blank=True)
+    source_url = models.URLField(max_length=500, blank=True, default="")
+    source_author = models.CharField(max_length=200, blank=True, default="")
+    source_license = models.CharField(max_length=100, blank=True, default="")
+    is_imported = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

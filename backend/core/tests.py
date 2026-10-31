@@ -1668,6 +1668,147 @@ class AlgoSetProductionSecurityHardeningTests(APITestCase):
         self.assertIn("xavfli fayl yo'li", str(ctx.exception))
 
 
+class AlgoSetCurriculumAndCleanupTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_test",
+            email="admin_test@algoset.uz",
+            password="Password123!",
+            role=User.Role.ADMIN,
+            is_email_verified=True,
+        )
+
+    def test_content_validator_rules(self):
+        from .content_validator import validate_lesson_content
+
+        # 1. Valid lesson
+        valid_lesson = {
+            "title_uz": "Ikkilik Qidiruv Algoritmi",
+            "summary_uz": "Tartiblangan massivda O(log N) vaqtda qidiruv amalga oshirish.",
+            "content_uz": "<p>Ikkilik qidiruv tartiblangan massivda O(log N) vaqtda ishlaydi.</p><pre><code>def bsearch(arr, x): return 0</code></pre><p>Vaqt murakkabligi: O(log N).</p>",
+            "source_url": "https://cp-algorithms.com/test",
+            "is_imported": True,
+        }
+        is_val, issues = validate_lesson_content(valid_lesson)
+        self.assertTrue(is_val)
+        self.assertEqual(len(issues), 0)
+
+        # 2. Too short title and missing code
+        invalid_lesson = {
+            "title_uz": "Qisqa",
+            "summary_uz": "Qisqa",
+            "content_uz": "Juda qisqa matn.",
+        }
+        is_val, issues = validate_lesson_content(invalid_lesson)
+        self.assertFalse(is_val)
+        self.assertTrue(any("juda qisqa" in i.lower() for i in issues))
+        self.assertTrue(any("kod namunasi" in i.lower() for i in issues))
+
+        # 3. English prose leakage detection
+        english_lesson = {
+            "title_uz": "Inglizcha Qolib Ketgan Dars",
+            "summary_uz": "Ushbu darsda xatolik mavjud bo'lib inglizcha matn qolib ketgan.",
+            "content_uz": "<p>This is because the algorithm will have more operations during execution between these elements.</p><pre><code>x = 1</code></pre><p>Murakkablik: O(1).</p>",
+        }
+        is_val, issues = validate_lesson_content(english_lesson)
+        self.assertFalse(is_val)
+        self.assertTrue(any("inglizcha iboralar" in i.lower() for i in issues))
+
+    def test_import_tutorials_idempotency_and_linking(self):
+        from django.core.management import call_command
+
+        # Create problem to link
+        p = Problem.objects.create(
+            slug="two-sum",
+            title_uz="Two Sum",
+            title_en="Two Sum",
+            author=self.admin,
+        )
+
+        # Run import twice
+        call_command("import_tutorials")
+        cats_count1 = TopicCategory.objects.count()
+        topics_count1 = Topic.objects.count()
+        lessons_count1 = Lesson.objects.count()
+
+        call_command("import_tutorials")
+        cats_count2 = TopicCategory.objects.count()
+        topics_count2 = Topic.objects.count()
+        lessons_count2 = Lesson.objects.count()
+
+        self.assertEqual(cats_count1, cats_count2)
+        self.assertEqual(topics_count1, topics_count2)
+        self.assertEqual(lessons_count1, lessons_count2)
+
+        # Verify problem was linked to lesson
+        l = Lesson.objects.filter(related_problems=p).first()
+        self.assertIsNotNone(l)
+        self.assertTrue(l.is_imported)
+        self.assertTrue(bool(l.source_url))
+
+    def test_clean_seed_data_preserves_real_users(self):
+        from django.core.management import call_command
+
+        # 1. Real user and real submission
+        real_user = User.objects.create_user(
+            username="real_student",
+            email="real_student@gmail.com",
+            password="Password123!",
+            role=User.Role.STUDENT,
+            is_email_verified=True,
+        )
+        prob = Problem.objects.create(
+            slug="real-prob",
+            title_uz="Real Problem",
+            title_en="Real Problem",
+            author=self.admin,
+        )
+        real_sub = Submission.objects.create(
+            user=real_user,
+            problem=prob,
+            code="def solve(): pass",
+            status=Submission.Status.ACCEPTED,
+        )
+
+        # 2. Demo student and demo submission
+        demo_student = User.objects.create_user(
+            username="student",
+            email="student@algoset.uz",
+            password="Password123!",
+            role=User.Role.STUDENT,
+            is_email_verified=True,
+        )
+        demo_sub = Submission.objects.create(
+            user=demo_student,
+            problem=prob,
+            code="def solve(): pass",
+            status=Submission.Status.ACCEPTED,
+        )
+        demo_contest = Contest.objects.create(
+            slug="beginner-contest",
+            title_uz="Beginner Contest",
+            title_en="Beginner Contest",
+            start_time=timezone.now(),
+            author=self.admin,
+        )
+
+        # 3. Dry-run mode does not delete anything
+        call_command("clean_seed_data", "--dry-run")
+        self.assertTrue(User.objects.filter(username="student").exists())
+        self.assertTrue(Contest.objects.filter(slug="beginner-contest").exists())
+
+        # 4. Confirm mode cleans demo user, demo contest, demo sub but preserves real user
+        call_command("clean_seed_data", "--confirm")
+        self.assertFalse(User.objects.filter(username="student").exists())
+        self.assertFalse(Contest.objects.filter(slug="beginner-contest").exists())
+        self.assertFalse(Submission.objects.filter(id=demo_sub.id).exists())
+
+        # Real user & submission are completely preserved
+        self.assertTrue(User.objects.filter(username="real_student").exists())
+        self.assertTrue(Submission.objects.filter(id=real_sub.id).exists())
+
+
+
 
 
 
