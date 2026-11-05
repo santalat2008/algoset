@@ -226,3 +226,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Simulyatsiya yakunlandi. Hech qanday ma'lumot o'zgarmadi."))
         else:
             self.stdout.write(self.style.SUCCESS("O'quv dasturi muvaffaqiyatli import qilindi!"))
+

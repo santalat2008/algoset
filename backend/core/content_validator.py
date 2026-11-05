@@ -117,3 +117,4 @@ def validate_lesson_content(lesson_dict: dict) -> tuple[bool, list[str]]:
             issues.append(f"Manba havolasi noto'g'ri URL: '{source_url}'.")
 
     return (len(issues) == 0, issues)
+

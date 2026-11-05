@@ -998,3 +998,4 @@ print("Maksimal yig'indi:", max_sub_array(massiv)) # 6
         ],
     },
 ]
+

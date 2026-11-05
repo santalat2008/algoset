@@ -171,3 +171,4 @@ class Command(BaseCommand):
             f"- Saqlangan real foydalanuvchilar: {real_users.count()} ta (`santalat` to'liq saqlandi)\n"
             f"- Saqlangan real yechimlar: {real_submissions.count()} ta"
         ))
+
